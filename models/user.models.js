@@ -1,24 +1,36 @@
 import mongoose, {Schema} from "mongoose";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const userSchema = new Schema(
     {
         username: {
             type: String,
-            require: true,
+            required: true,
             unique: true,
+            trim: true,
+            lowercase: true,
+            minLength: [3, "Username must be at least 3 characters long"],
+            maxlength: [30, "Username cannot exceed 30 characters"],
         },
 
         email: {
             type: String,
-            require: true,
+            required: true,
             unique: true,
+            trim: true, 
+            lowercase: true, 
+            match: [/.+\@.+\..+/, "Please enter a valid email address"],
         },
 
         password: {
             type: String,
-            require: true,
+            required: true,
+            minlength: [8, "Password must be at least 8 characters long"],
         },
+        refreshToken: {
+            type: String,
+        }
     }, {timestamps:true}
 );
 
@@ -28,8 +40,32 @@ userSchema.pre("save", async function(next){
     next();
 });
 
-userSchema.method.isPasswordCorrect = async function(password){
+userSchema.methods.isPasswordCorrect = async function(password){
     return await bcrypt.compare(password, this.password);
+};
+
+userSchema.methods.generateAccessToken = function(){
+    return jwt.sign(
+        {
+            _id : this._id,
+        },
+        process.env.ACCESS_TOKEN_SECRET,
+        {
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+        }
+    )
+};
+
+userSchema.methods.generateRefreshtoken = function(){
+    return jwt.sign(
+        {
+            _id: this._id,
+        },
+        process.env.REFRESH_TOKEN_SECRET,
+        {
+            expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+        }
+    )
 };
 
 export const User = mongoose.model("User", userSchema);
